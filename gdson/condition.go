@@ -1,8 +1,8 @@
 package gdson
 
 type Hour struct {
-	Start uint16
-	End   uint16
+	Start int
+	End   int
 }
 
 type Weekday int16
@@ -20,8 +20,7 @@ const (
 
 type Condition struct {
 	Hour    []Hour
-	Day     []uint16
-	Month   []uint16
+	Day     []int
+	Month   []int
 	Weekday []Weekday
 }
-
