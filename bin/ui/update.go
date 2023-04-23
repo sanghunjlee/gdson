@@ -4,51 +4,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m *model) nextInput() {
-	switch m.state {
-	case conditionInputState:
-		m.focused = (m.focused + 1) % len(m.conditionInputs)
-	case dialogueInputState:
-		m.focused = (m.focused + 1) % len(m.dialogueInputs)
-	case movementInputState:
-		m.focused = (m.focused + 1) % len(m.movementInputs)
-	}
-}
-
-func (m *model) prevInput() {
-	m.focused--
-	if m.focused < 0 {
-		switch m.state {
-		case conditionInputState:
-			m.focused = len(m.conditionInputs) - 1
-		case dialogueInputState:
-			m.focused = len(m.dialogueInputs) - 1
-		case movementInputState:
-			m.focused = len(m.movementInputs) - 1
-		}
-	}
-}
-
-func (m model) refocus() {
-	switch m.state {
-	case conditionInputState:
-		for i := range m.conditionInputs {
-			m.conditionInputs[i].Blur()
-		}
-		m.conditionInputs[m.focused].Focus()
-	case dialogueInputState:
-		for i := range m.dialogueInputs {
-			m.dialogueInputs[i].Blur()
-		}
-		m.dialogueInputs[m.focused].Focus()
-	case movementInputState:
-		for i := range m.movementInputs {
-			m.movementInputs[i].Blur()
-		}
-		m.movementInputs[m.focused].Focus()
-	}
-}
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		cmd  tea.Cmd
@@ -58,24 +13,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-		switch m.state {
-		case idleState:
-			m.mainMenu.SetWidth(msg.Width)
-		case conditionInputState:
-			for i := range m.conditionInputs {
-				m.conditionInputs[i].Width = msg.Width
-			}
-		case dialogueInputState:
-			for i := range m.dialogueInputs {
-				m.dialogueInputs[i].Width = msg.Width
-			}
-		case movementInputState:
-			for i := range m.movementInputs {
-				m.movementInputs[i].Width = msg.Width
-			}
-		}
-		return m, nil
-
+		m.conditionInputs.Width = msg.Width
+		m.mainMenu.Width = msg.Width
+		m.mainMenu.menu.SetWidth(msg.Width)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -89,6 +29,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					switch string(i) {
 					case "Condition":
 						m.state = conditionInputState
+						m.conditionInputs.Focus()
 					case "Dialogue":
 						m.state = dialogueInputState
 					case "Movement":
@@ -96,39 +37,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			case conditionInputState:
-				if m.focused == len(m.conditionInputs)-1 {
-					m.state = idleState
+				if m.conditionInputs.index == 3 {
+					m.conditionInputs.quit = true
 					return m, nil
 				}
-				m.nextInput()
-			case dialogueInputState:
-				if m.focused == len(m.dialogueInputs)-1 {
-					m.state = idleState
-					return m, nil
-				}
-				m.nextInput()
-			case movementInputState:
-				if m.focused == len(m.movementInputs)-1 {
-					m.state = idleState
-					return m, nil
-				}
-				m.nextInput()
+				m.conditionInputs.nextInput()
 			}
 		case tea.KeyShiftTab:
-			m.prevInput()
+			switch m.state {
+			case conditionInputState:
+				m.conditionInputs.prevInput()
+			}
 		case tea.KeyTab:
-			m.nextInput()
+			switch m.state {
+			case conditionInputState:
+				m.conditionInputs.nextInput()
+			}
 		}
-		m.refocus()
 	}
-
 	m.mainMenu, cmd = m.mainMenu.Update(msg)
 	cmds = append(cmds, cmd)
 
-	for i := range m.conditionInputs {
-		m.conditionInputs[i], cmd = m.conditionInputs[i].Update(msg)
-		cmds = append(cmds, cmd)
-	}
+	m.conditionInputs, cmd = m.conditionInputs.Update(msg)
+	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 

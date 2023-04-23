@@ -5,6 +5,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (g model) Init() tea.Cmd {
-	return textinput.Blink
+func (m model) Init() tea.Cmd {
+	return tea.Batch(tea.EnterAltScreen, textinput.Blink)
 }
