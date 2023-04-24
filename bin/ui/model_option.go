@@ -13,21 +13,38 @@ type optionItem struct {
 
 func NewOptionItem() optionItem {
 	s := textinput.New()
-	n := textinput.New()
-
 	return optionItem{
 		Say:  s,
 		Next: n,
 	}
 }
 
-func (f *optionItem) Focus() tea.Cmd {
-	f.focus = true
-	return f.Say.Focus()
+func (o *optionItem) Focus() tea.Cmd {
+	o.focus = true
+	return o.Say.Focus()
 }
 
-func (f *optionItem) Blur() {
-	f.focus = false
-	f.Say.Blur()
-	f.Next.Blur()
+func (o *optionItem) Blur() {
+	o.focus = false
+	o.Say.Blur()
+	o.Next.Blur()
+}
+
+func (o optionItem) Update(msg tea.Msg) (optionItem, tea.Cmd) {
+	if !o.focus {
+		return o, nil
+	}
+
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
+	o.Say, cmd = o.Say.Update(msg)
+	cmds = append(cmds, cmd)
+
+	o.Next, cmd = o.Next.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return o, tea.Batch(cmds...)
 }

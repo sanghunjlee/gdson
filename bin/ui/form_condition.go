@@ -156,10 +156,15 @@ func (f *conditionForm) Focus() tea.Cmd {
 
 func (f *conditionForm) Blur() {
 	f.focus = false
+	f.quit = false
 	f.weekdayInput.Blur()
 	f.monthInput.Blur()
 	f.dayInput.Blur()
 	f.hourInput.Blur()
+}
+
+func (f *conditionForm) IsDone() bool {
+	return f.quit
 }
 
 func (f *conditionForm) SetSize(width int, height int) {
