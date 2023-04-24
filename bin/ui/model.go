@@ -35,7 +35,7 @@ type model struct {
 	focused         int
 	mainMenu        menuList
 	conditionInputs conditionForm
-	dialogueInputs  []tea.Model
+	dialogueInputs  dialogueForm
 	movementInputs  []tea.Model
 	err             error
 }

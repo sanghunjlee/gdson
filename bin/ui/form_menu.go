@@ -45,12 +45,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type menuList struct {
+	focus  bool
+	quit   bool
 	width  int
 	height int
-	focus  bool
 	title  string
 	desc   string
-	choice string
+	Choice string
 	menu   list.Model
 }
 
@@ -77,11 +78,17 @@ func InitMenu() menuList {
 	}
 }
 
-func (m *menuList) Focus() {
+func (m *menuList) Focus() tea.Cmd {
 	m.focus = true
+	return nil
 }
 func (m *menuList) Blur() {
 	m.focus = false
+	m.quit = false
+}
+
+func (m *menuList) IsDone() bool {
+	return m.quit
 }
 
 func (m *menuList) SetSize(w int, h int) {
@@ -92,6 +99,19 @@ func (m *menuList) SetSize(w int, h int) {
 func (m menuList) Update(msg tea.Msg) (menuList, tea.Cmd) {
 	if !m.focus {
 		return m, nil
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEnter:
+			i, ok := m.menu.SelectedItem().(item)
+			if ok {
+				m.Choice = string(i)
+				m.quit = true
+				return m, nil
+			}
+		}
 	}
 
 	var cmd tea.Cmd

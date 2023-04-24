@@ -5,10 +5,6 @@ import (
 )
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
-	)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -18,34 +14,50 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			return m, tea.Quit
-		case tea.KeyEnter:
-			switch m.state {
-			case idleState:
-				i, ok := m.mainMenu.menu.SelectedItem().(item)
-				if ok {
-					m.mainMenu.choice = string(i)
-					m.mainMenu.Blur()
-					switch string(i) {
-					case "Condition":
-						m.state = conditionInputState
-						cmd = m.conditionInputs.Focus()
-					case "Dialogue":
-						m.state = dialogueInputState
-					case "Movement":
-						m.state = movementInputState
-					}
-				}
+			if m.state != idleState {
+				m.state = idleState
+				m.conditionInputs.Blur()
+				m.dialogueInputs.Blur()
+
+				cmd := m.mainMenu.Focus()
 				return m, cmd
 			}
+			return m, tea.Quit
 		}
 	}
+
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
 	m.mainMenu, cmd = m.mainMenu.Update(msg)
+	if m.mainMenu.IsDone() {
+		m.mainMenu.Blur()
+		switch m.mainMenu.Choice {
+		case "Condition":
+			m.state = conditionInputState
+			cmd = m.conditionInputs.Focus()
+			return m, cmd
+		case "Dialogue":
+			m.state = dialogueInputState
+			cmd = m.dialogueInputs.Focus()
+			return m, cmd
+		}
+	}
 	cmds = append(cmds, cmd)
 
 	m.conditionInputs, cmd = m.conditionInputs.Update(msg)
+	if m.conditionInputs.IsDone() {
+		m.conditionInputs.Blur()
+		m.state = idleState
+		cmd = m.mainMenu.Focus()
+		return m, cmd
+	}
+	cmds = append(cmds, cmd)
+
+	m.dialogueInputs, cmd = m.dialogueInputs.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
-
 }
