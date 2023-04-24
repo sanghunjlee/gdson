@@ -12,10 +12,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.conditionInputs.Width = msg.Width
-		m.mainMenu.Width = msg.Width
-		m.mainMenu.menu.SetWidth(msg.Width)
+		m.SetSize(msg.Width, msg.Height)
+		m.conditionInputs.SetSize(msg.Width, msg.Height)
+		m.mainMenu.SetSize(msg.Width, msg.Height)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
@@ -23,35 +22,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			switch m.state {
 			case idleState:
-				i, ok := m.mainMenu.SelectedItem().(item)
+				i, ok := m.mainMenu.menu.SelectedItem().(item)
 				if ok {
-					m.mainMenuChoice = string(i)
+					m.mainMenu.choice = string(i)
+					m.mainMenu.Blur()
 					switch string(i) {
 					case "Condition":
 						m.state = conditionInputState
-						m.conditionInputs.Focus()
+						cmd = m.conditionInputs.Focus()
 					case "Dialogue":
 						m.state = dialogueInputState
 					case "Movement":
 						m.state = movementInputState
 					}
 				}
-			case conditionInputState:
-				if m.conditionInputs.index == 3 {
-					m.conditionInputs.quit = true
-					return m, nil
-				}
-				m.conditionInputs.nextInput()
-			}
-		case tea.KeyShiftTab:
-			switch m.state {
-			case conditionInputState:
-				m.conditionInputs.prevInput()
-			}
-		case tea.KeyTab:
-			switch m.state {
-			case conditionInputState:
-				m.conditionInputs.nextInput()
+				return m, cmd
 			}
 		}
 	}

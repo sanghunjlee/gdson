@@ -45,12 +45,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type menuList struct {
-	Width   int
-	focused bool
-	title   string
-	desc    string
-	choice  string
-	menu    list.Model
+	width  int
+	height int
+	focus  bool
+	title  string
+	desc   string
+	choice string
+	menu   list.Model
 }
 
 func InitMenu() menuList {
@@ -69,19 +70,72 @@ func InitMenu() menuList {
 	l.Styles.HelpStyle = helpStyle
 
 	return menuList{
-		focused: false,
-		title:   t,
-		desc:    d,
-		menu:    l,
+		focus: false,
+		title: t,
+		desc:  d,
+		menu:  l,
 	}
 }
 
+func (m *menuList) Focus() {
+	m.focus = true
+}
+func (m *menuList) Blur() {
+	m.focus = false
+}
+
+func (m *menuList) SetSize(w int, h int) {
+	m.width = w
+	m.height = h
+}
+
+func (m menuList) Update(msg tea.Msg) (menuList, tea.Cmd) {
+	if !m.focus {
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+
+	m.menu, cmd = m.menu.Update(msg)
+
+	return m, cmd
+}
+
 func (m menuList) View() string {
-	v := titleStyle.Width(m.Width).Render(f.title) + "\n"
-	v += descStyle.Width(f.Width).Render(f.desc) + "\n"
-	v += f.weekdayInput.View() + "\n"
-	v += f.monthInput.View() + "\n"
-	v += f.dayInput.View() + "\n"
-	v += f.hourInput.View() + "\n"
-	return v
+	var availHeight = m.height
+
+	title := m.titleView()
+	desc := m.descView()
+
+	availHeight -= lipgloss.Height(title) + lipgloss.Height(desc)
+
+	content := lipgloss.NewStyle().Height(availHeight).Render(m.menu.View())
+	return lipgloss.JoinVertical(lipgloss.Left, title, desc, content)
+}
+
+func (m menuList) titleView() string {
+	titleStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		Margin(1, 2).
+		Padding(1).
+		BorderForeground(lipgloss.Color("220")).
+		Align(lipgloss.Center).
+		Bold(true)
+
+	gap := titleStyle.GetHorizontalPadding() +
+		titleStyle.GetHorizontalMargins() +
+		titleStyle.GetHorizontalBorderSize()
+
+	return titleStyle.Width(m.width - gap).Render(m.title)
+}
+
+func (m menuList) descView() string {
+	descStyle := lipgloss.NewStyle().
+		PaddingLeft(4).
+		PaddingBottom(1).
+		Foreground(lipgloss.Color("240"))
+
+	gap := descStyle.GetHorizontalPadding()
+
+	return descStyle.Width(m.width - gap).Render(m.desc)
 }

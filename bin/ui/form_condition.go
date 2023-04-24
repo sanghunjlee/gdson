@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func numValidator(s string) error {
@@ -82,11 +83,13 @@ func weekdayValidator(s string) error {
 	return nil
 }
 
-type ConditionForm struct {
-	Width        int
-	focus        bool
-	quit         bool
-	index        int
+type conditionForm struct {
+	focus  bool
+	quit   bool
+	width  int
+	height int
+	index  int
+
 	title        string
 	desc         string
 	weekdayInput textinput.Model
@@ -95,7 +98,7 @@ type ConditionForm struct {
 	hourInput    textinput.Model
 }
 
-func InitConditionForm() ConditionForm {
+func InitConditionForm() conditionForm {
 	t := "Condition"
 	d := `You can input multiple values using commas (,). Optinoally you can enclose the values with square brackets.
 For numbers, you can input a range using a slice symbol (:).
@@ -133,7 +136,7 @@ Examples:
 	hour.PromptStyle = promptStyle
 	hour.Validate = hourValidator
 
-	return ConditionForm{
+	return conditionForm{
 		focus:        false,
 		quit:         false,
 		index:        0,
@@ -146,12 +149,12 @@ Examples:
 	}
 }
 
-func (f *ConditionForm) Focus() tea.Cmd {
+func (f *conditionForm) Focus() tea.Cmd {
 	f.focus = true
-	return nil
+	return f.weekdayInput.Focus()
 }
 
-func (f *ConditionForm) Blur() {
+func (f *conditionForm) Blur() {
 	f.focus = false
 	f.weekdayInput.Blur()
 	f.monthInput.Blur()
@@ -159,55 +162,79 @@ func (f *ConditionForm) Blur() {
 	f.hourInput.Blur()
 }
 
-func (f *ConditionForm) nextInput() {
-	f.index = (f.index + 1) % 4
+func (f *conditionForm) SetSize(width int, height int) {
+	f.width = width
+	f.height = height
 }
 
-func (f *ConditionForm) prevInput() {
-	f.index--
-	if f.index < 0 {
-		f.index = 3
-	}
-}
-
-func (f ConditionForm) Update(msg tea.Msg) (ConditionForm, tea.Cmd) {
+func (f conditionForm) Update(msg tea.Msg) (conditionForm, tea.Cmd) {
 	if !f.focus {
 		return f, nil
 	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		f.Width = msg.Width
+		f.width = msg.Width
 		f.weekdayInput.Width = msg.Width
 		f.monthInput.Width = msg.Width
 		f.dayInput.Width = msg.Width
 		f.hourInput.Width = msg.Width
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyEnter:
+		case tea.KeyTab, tea.KeyShiftTab, tea.KeyEnter, tea.KeyUp, tea.KeyDown:
+
+			if msg.Type == tea.KeyUp || msg.Type == tea.KeyShiftTab {
+				f.index--
+			} else {
+				f.index++
+			}
+
+			if f.index > 3 {
+				f.index = 0
+			} else if f.index < 0 {
+				f.index = 3
+			}
+
+			var cmd tea.Cmd
+			for i := 0; i < 4; i++ {
+				if i == f.index {
+					switch i {
+					case 0:
+						cmd = f.weekdayInput.Focus()
+					case 1:
+						cmd = f.monthInput.Focus()
+					case 2:
+						cmd = f.dayInput.Focus()
+					case 3:
+						cmd = f.hourInput.Focus()
+					}
+					continue
+				}
+				switch i {
+				case 0:
+					f.weekdayInput.Blur()
+				case 1:
+					f.monthInput.Blur()
+				case 2:
+					f.dayInput.Blur()
+				case 3:
+					f.hourInput.Blur()
+				}
+			}
+			return f, cmd
 		}
 	}
 
+	cmd := f.updateInputs(msg)
+
+	return f, cmd
+}
+
+func (f *conditionForm) updateInputs(msg tea.Msg) tea.Cmd {
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
-
-	f.weekdayInput.Blur()
-	f.monthInput.Blur()
-	f.dayInput.Blur()
-	f.hourInput.Blur()
-	switch f.index {
-	case 0:
-		cmd = f.weekdayInput.Focus()
-	case 1:
-		cmd = f.monthInput.Focus()
-	case 2:
-		cmd = f.dayInput.Focus()
-	case 3:
-		cmd = f.hourInput.Focus()
-	}
-	cmds = append(cmds, cmd)
 
 	f.weekdayInput, cmd = f.weekdayInput.Update(msg)
 	cmds = append(cmds, cmd)
@@ -218,14 +245,49 @@ func (f ConditionForm) Update(msg tea.Msg) (ConditionForm, tea.Cmd) {
 	f.hourInput, cmd = f.hourInput.Update(msg)
 	cmds = append(cmds, cmd)
 
-	return f, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
-func (f ConditionForm) View() string {
-	v := titleStyle.Width(f.Width).Render(f.title) + "\n"
-	v += descStyle.Width(f.Width).Render(f.desc) + "\n"
-	v += f.weekdayInput.View() + "\n"
+
+func (f conditionForm) View() string {
+	var availHeight = f.height
+
+	v := f.weekdayInput.View() + "\n"
 	v += f.monthInput.View() + "\n"
 	v += f.dayInput.View() + "\n"
-	v += f.hourInput.View() + "\n"
-	return v
+	v += f.hourInput.View()
+
+	title := f.titleView()
+	desc := f.descView()
+
+	availHeight -= lipgloss.Height(title) + lipgloss.Height(desc)
+
+	content := lipgloss.NewStyle().Height(availHeight).Render(v)
+	return lipgloss.JoinVertical(lipgloss.Left, title, desc, content)
+}
+
+func (f conditionForm) titleView() string {
+	titleStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		Margin(1, 2).
+		Padding(1).
+		BorderForeground(lipgloss.Color("220")).
+		Align(lipgloss.Center).
+		Bold(true)
+
+	gap := titleStyle.GetHorizontalPadding() +
+		titleStyle.GetHorizontalMargins() +
+		titleStyle.GetHorizontalBorderSize()
+
+	return titleStyle.Width(f.width - gap).Render(f.title)
+}
+
+func (f conditionForm) descView() string {
+	descStyle := lipgloss.NewStyle().
+		PaddingLeft(4).
+		PaddingBottom(1).
+		Foreground(lipgloss.Color("240"))
+
+	gap := descStyle.GetHorizontalPadding()
+
+	return descStyle.Width(f.width - gap).Render(f.desc)
 }
